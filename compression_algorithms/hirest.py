@@ -19,9 +19,10 @@ warnings.filterwarnings("ignore")
 #implements a univariate sketch
 class HierarchicalSketch():                                                  
 
-    def __init__(self, min_error_thresh, blocksize, pfn, sfn, start_level):
-        self.error_thresh = min_error_thresh
-        self.coderange = np.ceil(1.0/(min_error_thresh*2))
+    def __init__(self, quantize_thresh,window_thresh, blocksize, pfn, sfn, start_level):
+        self.error_thresh = quantize_thresh
+        self.coderange = np.ceil(1.0/(quantize_thresh*2))
+        self.window_error = window_thresh
         self.blocksize = blocksize #must be a power of 2
         self.d = int(np.log2(blocksize))
         self.pfn = pfn
@@ -101,7 +102,7 @@ class HierarchicalSketch():
 
             w_ = len(curr)
             #print(w_)
-            v = self.window_error_2d(curr, 32, 0.075)
+            v = self.window_error_2d(curr, 8, self.window_error)
             #print(len(v))
             #print(v)
             v_quant = self.quantize(v)
@@ -179,11 +180,12 @@ class MultivariateHierarchical(CompressionAlgorithm):
     The compression codec is initialized with a per
     attribute error threshold.
     '''
-    def __init__(self, target,pfn = np.mean, error_thresh=1e-5, blocksize=4096, start_level = 0, trc = False):
+    def __init__(self, target,pfn = np.mean, quantize_thresh=1e-5, window_thresh = 0.0, blocksize=4096, start_level = 0, trc = False):
 
-        super().__init__(target, error_thresh)
+        super().__init__(target, quantize_thresh)
         self.trc = trc
         self.blocksize = blocksize
+        self.window_error = window_thresh
         self.start_level =start_level
         self.TURBO_CODE_PARAMETER = "20"
         self.TURBO_CODE_LOCATION = "./../Turbo-Range-Coder/turborc" 
@@ -191,7 +193,7 @@ class MultivariateHierarchical(CompressionAlgorithm):
 
         self.pfn = pfn
 
-        self.sketch = HierarchicalSketch(self.error_thresh, blocksize, start_level = self.start_level, pfn=self.pfn, sfn='nearest')
+        self.sketch = HierarchicalSketch(self.error_thresh, blocksize=blocksize,window_thresh=self.window_error, start_level = self.start_level, pfn=self.pfn, sfn='nearest')
 
     def compress(self):
 
@@ -313,19 +315,7 @@ Test code here
 ##Test
 #N,p = data.shape
 
-#print(data.shape)
-"""
-New parameter guide:
 
-* quantization + trc:      trc = True, quant = True
-* quantization + gzip:     trc = False, quant = True (untested)
-* Stavros method + gzip:   trc = False, quant = False
-* Stavros method + trc:    trc = True, quant = False (untested)
-
-- ensure that error_thresh >= 0.001 (1e-3), as there might be rounding errors with anything less
-- larger block sizes tend to yield better compression ratios (confirm empirically)
-
-"""
 
 #img = Image.open('cosmos.jpg')
 #img = Image.open('seg_1_cropped.png')
@@ -350,15 +340,6 @@ file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
 file = file.reshape(1800, 1800)
 data = file[0:1024,0:1024]
 
-# x, y = np.mgrid[-1.0:1.0:2048j, -1.0:1.0:2048j]
-# xy = np.column_stack([x.flat, y.flat])
-# mu = np.array([5.0, 2.5])
-# sigma = np.array([15, 25])
-# covariance = np.diag(sigma**2)
-# z = multivariate_normal.pdf(xy, mean=mu, cov=covariance)
-# # Reshape back to a grid.
-# data = z.reshape(x.shape)
-
 shape = 1024
 
 # data = np.load('park_full.npy')
@@ -367,7 +348,7 @@ shape = 1024
 # print('new shape:', data.shape)
 
 
-nn = MultivariateHierarchical('hier', error_thresh = 0.075, blocksize=shape, start_level = 10, trc = True)
+nn = MultivariateHierarchical('hier', quantize_thresh = 0.05,window_thresh = 0.05, blocksize=shape, start_level = 10, trc = True)
 nn.load(data)
 nn.compress()
 
