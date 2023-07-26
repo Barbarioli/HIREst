@@ -127,8 +127,7 @@ class HierarchicalSketch():
             r_linf = np.max(curr)
             r_l1 = self.pool_mean(np.abs(curr), w_)
             r_l2 = self.pool_mean(np.square(curr), w_)
-            # hierarchy.append(v_quant)
-            hierarchy.append(self.spatial_flatten(v_quant))
+            hierarchy.append(v_quant)
             residuals_linf.append(np.max(r_linf))
             residuals_l1.append(np.mean(r_l1))
 
@@ -161,20 +160,22 @@ class HierarchicalSketch():
 
 
     #packs all of the data into a single array
-    def pack(self, sketch):
+    def pack(self, sketch, w=2):
         vectors = []
         for h,r in sketch:
-            vector = np.concatenate([np.array([r]), h.flatten()])
+            # vector = np.concatenate([np.array([r]), h.flatten()])
+            vector = np.concatenate([np.array([r]), self.spatial_flatten(h, w)])
             vectors.append(vector)
             #print(vectors)
         return vectors
 
     #unpack all of the data
-    def unpack(self, array, error_thresh=0):
+    def unpack(self, array, w=2, error_thresh=0):
         sketch = []
         for i in range(self.start_level,self.d+1):
             
             r = array[0]
+            block = np.zeros()
             h = array[1:2**i+1]
             array = array[2**i+1:]
                 
@@ -222,7 +223,7 @@ class MultivariateHierarchical(CompressionAlgorithm):
         for en in ens:
                 #cumulative_gap = min(self.error_thresh - en[-1][1], cumulative_gap)
             arrays.append(self.sketch.pack(en))
-        
+        print(arrays[0])
 
         codes = np.vstack(arrays).astype(np.float16)
 
