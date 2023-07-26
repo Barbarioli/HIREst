@@ -78,7 +78,19 @@ class HierarchicalSketch():
                             continue
                     
         return new_x
-
+    
+    def spatial_flatten(self, X, w=2):
+        M = X.shape[0]
+        flattened = np.zeros(M*M)
+        start = 0
+        block_length = w*w
+        end = block_length
+        for i in range(0, M, w):
+            for j in range(0, M, w):
+                flattened[start:end] = X[i:i+w, j:j+w].flatten()
+                start = end
+                end += block_length
+        return flattened 
   
     #image version
     def encode(self, data):
@@ -115,8 +127,8 @@ class HierarchicalSketch():
             r_linf = np.max(curr)
             r_l1 = self.pool_mean(np.abs(curr), w_)
             r_l2 = self.pool_mean(np.square(curr), w_)
-            
-            hierarchy.append(v_quant)
+            # hierarchy.append(v_quant)
+            hierarchy.append(self.spatial_flatten(v_quant))
             residuals_linf.append(np.max(r_linf))
             residuals_l1.append(np.mean(r_l1))
 
@@ -209,7 +221,6 @@ class MultivariateHierarchical(CompressionAlgorithm):
             
         for en in ens:
                 #cumulative_gap = min(self.error_thresh - en[-1][1], cumulative_gap)
-            print(en)
             arrays.append(self.sketch.pack(en))
         
 
@@ -221,7 +232,8 @@ class MultivariateHierarchical(CompressionAlgorithm):
         trc_flag = '-' + self.TURBO_CODE_PARAMETER
         # flush to .npy file
         self.path = self.CODES + '.npy'
-        np.save(self.path, codes.flatten(order='F'))
+        # np.save(self.path, codes.flatten(order='F'))
+        np.save(self.path, codes)
         self.CODES += '.rc'
         self.DATA_FILES[0] = self.CODES
         print('\n')
@@ -236,7 +248,6 @@ class MultivariateHierarchical(CompressionAlgorithm):
         self.compression_stats['compressed_size'] = self.getSize()
         self.compression_stats['compressed_ratio'] = self.getSize()/self.compression_stats['original_size']
         #self.compression_stats.update(struct.additional_stats)
-
 
     def decompress(self, original=None, error_thresh=1e-4):
         start = timer()
@@ -334,13 +345,16 @@ Test code here
 #file = np.fromfile('AEROD_v_1_1800_3600.f32', dtype=float)
 #file = np.fromfile('FREQZM_1_1800_3600.f32', dtype=float)
 #file = np.fromfile('TREFMXAV_1_1800_3600.f32', dtype=float)
-file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
+# file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
 
 
-file = file.reshape(1800, 1800)
-data = file[0:1024,0:1024]
+# file = file.reshape(1800, 1800)
+# data = file[0:1024,0:1024]
 
 shape = 1024
+data = np.random.normal(0, 1, (1024, 1024))
+
+
 
 # data = np.load('park_full.npy')
 # print('original shape:', data.shape)
