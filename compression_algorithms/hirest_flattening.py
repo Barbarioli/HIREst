@@ -11,6 +11,8 @@ import warnings
 import PIL 
 from PIL import Image, ImageOps
 from scipy.stats import multivariate_normal
+from flattening_algos import *
+import matplotlib.pyplot as plt
 
 PIL.Image.MAX_IMAGE_PIXELS = 933120000
 warnings.filterwarnings("ignore")
@@ -19,7 +21,7 @@ warnings.filterwarnings("ignore")
 #implements a univariate sketch
 class HierarchicalSketch():                                                  
 
-    def __init__(self, quantize_thresh,window_thresh, blocksize, pfn, sfn, start_level):
+    def __init__(self, quantize_thresh,window_thresh, blocksize, pfn, sfn, start_level, flattening_algo='row', flatten_window=2):
         self.error_thresh = quantize_thresh
         self.coderange = np.ceil(1.0/(quantize_thresh*2))
         self.window_error = window_thresh
@@ -28,6 +30,12 @@ class HierarchicalSketch():
         self.pfn = pfn
         self.sfn = sfn
         self.start_level = start_level
+        if flattening_algo == "row":
+            self.flattener = BaseFlatten()
+        elif flattening_algo == "window":
+            self.flattener = WindowFlatten(w=flatten_window)
+        elif flattening_algo == "windowContiguous":
+            self.flattener = WindowContiguousFlatten(w=flatten_window)
     
     def quantize(self, x):
         #x = x.copy()
@@ -151,7 +159,7 @@ class HierarchicalSketch():
         vectors = []
         for h,r in sketch:
             # vector = np.concatenate([np.array([r]), h.flatten()])
-            vector = np.concatenate([np.array([r]), h.flatten()])
+            vector = np.concatenate([np.array([r]), self.flattener.flatten(h)])
             vectors.append(vector)
             #print(vectors)
         return vectors
@@ -180,7 +188,7 @@ class MultivariateHierarchical(CompressionAlgorithm):
     The compression codec is initialized with a per
     attribute error threshold.
     '''
-    def __init__(self, target,pfn = np.mean, quantize_thresh=1e-5, window_thresh = 0.0, blocksize=4096, start_level = 0, trc = False):
+    def __init__(self, target,pfn = np.mean, quantize_thresh=1e-5, window_thresh = 0.0, blocksize=4096, start_level = 0, trc = False, flattening_algo='row', flatten_window=2):
 
         super().__init__(target, quantize_thresh)
         self.trc = trc
@@ -193,7 +201,7 @@ class MultivariateHierarchical(CompressionAlgorithm):
 
         self.pfn = pfn
 
-        self.sketch = HierarchicalSketch(self.error_thresh, blocksize=blocksize,window_thresh=self.window_error, start_level = self.start_level, pfn=self.pfn, sfn='nearest')
+        self.sketch = HierarchicalSketch(self.error_thresh, blocksize=blocksize,window_thresh=self.window_error, start_level = self.start_level, pfn=self.pfn, sfn='nearest', flattening_algo=flattening_algo, flatten_window=flatten_window)
 
     def compress(self):
 
@@ -210,7 +218,6 @@ class MultivariateHierarchical(CompressionAlgorithm):
         for en in ens:
                 #cumulative_gap = min(self.error_thresh - en[-1][1], cumulative_gap)
             arrays.append(self.sketch.pack(en))
-        print(arrays[0])
 
         codes = np.vstack(arrays).astype(np.float16)
 
@@ -311,55 +318,29 @@ Test code here
 ####
 
 """"""
-##Test
-#N,p = data.shape
+if __name__ == "__main__":
+    # for w in [2,4,8,16,32]:
+    for w in [8]:
+        ratios, latencies, = [], []
+        for data in os.listdir('data'):
+            if data.endswith('.f32'):
+                file = np.fromfile('data/' + data, dtype=float)
+                file = file.reshape(1800, 1800)
+                data = file[0:1024,0:1024]
+                shape = 1024
+                ratios_1ds = []
+                latencies_1ds = []
+                for flattener_type in ['row', 'window', 'windowContiguous']:
+                    nn = MultivariateHierarchical('hier', quantize_thresh = 0.005,window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True, flattening_algo=flattener_type, flatten_window=w)
+                    nn.load(data)
+                    nn.compress()
+                    ratios_1ds.append(nn.compression_stats['compressed_ratio'])
+                    latencies_1ds.append(nn.compression_stats['compression_latency'])
+                ratios.append(ratios_1ds)
+                latencies.append(latencies_1ds)
 
-
-
-#img = Image.open('cosmos.jpg')
-#img = Image.open('seg_1_cropped.png')
-#img = Image.open('GSFC_20171208_cropped0.jpg')
-# img = Image.open('chicago.tif')
-# img = ImageOps.grayscale(img)
-# data = np.array(img)
-# data = data*1.0
-# data = data[0:1024,0:1024]
-# print(data)
-# print(np.mean(data))
-# print(np.count_nonzero(np.isnan(data)))
-#data = data.astype(np.float32)
-
-# file = np.fromfile('CLDLOW_1_1800_3600.f32', dtype=float)
-#file = np.fromfile('AEROD_v_1_1800_3600.f32', dtype=float)
-#file = np.fromfile('FREQZM_1_1800_3600.f32', dtype=float)
-#file = np.fromfile('TREFMXAV_1_1800_3600.f32', dtype=float)
-# file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
-
-file = np.fromfile('data/CLDLOW_1_1800_3600.f32', dtype=float)
-file = file.reshape(1800, 1800)
-data = file[0:1024,0:1024]
-
-print(data[0:20, 0:20])
-
-shape = 1024
-# data = np.random.normal(0, 1, (1024, 1024))
-
-
-
-# data = np.load('park_full.npy')
-# print('original shape:', data.shape)
-# data = data[0:1024,0:1024]
-# print('new shape:', data.shape)
-
-
-nn = MultivariateHierarchical('hier', quantize_thresh = 0.005,window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True)
-nn.load(data)
-nn.compress()
-
-# note that the decoding error can be defined at decompression time
-# we would do so by specifying the parameter error_thresh = 0.1 for instance
-#nn.decompress(data)
-print(nn.compression_stats)
-
-
+        ratios = np.array(ratios)
+        latencies = np.array(latencies)
+        np.savetxt("packing_algo_results/ratios_{}.csv".format(w), ratios, delimiter=',', fmt='%f')
+        np.savetxt("packing_algo_results/latencies_{}.csv".format(w), latencies, delimiter=',', fmt='%f')   
 

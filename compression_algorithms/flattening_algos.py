@@ -11,8 +11,12 @@ class FlatteningAlgo(ABC):
         pass
 
 class WindowFlatten(FlatteningAlgo):
-    def flatten(self, X, w=2):
+    def __init__(self, w=2):
+        super().__init__()
         self._w = w
+
+    def flatten(self, X):
+        w = self._w
         M = X.shape[0]
         x = np.zeros(M*M)
         start = 0
@@ -42,8 +46,11 @@ class WindowFlatten(FlatteningAlgo):
 
 
 class WindowContiguousFlatten(FlatteningAlgo):
-    def flatten(self, X, w=2):
+    def __init__(self, w=2):
+        super().__init__()
         self._w = w
+    def flatten(self, X):
+        w = self._w
         i, j = 0, 0
         M = X.shape[0]
         x = np.zeros(M*M)
@@ -72,8 +79,6 @@ class WindowContiguousFlatten(FlatteningAlgo):
             start = end
             end += block_length
         return x
-
-        # flatten the matrix such that 
         
     def unflatten(self, x):
         M = int(np.sqrt(x.shape[0]))
@@ -132,7 +137,7 @@ if __name__ == "__main__":
     # test the two algorithms and time them
 
 
-    X = np.random.normal(size=(5000, 5000))
+    X = np.random.normal(size=(2500, 2500))
 
     spatial_flatten = WindowContiguousFlatten()
     start = time.time()
