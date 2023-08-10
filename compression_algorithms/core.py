@@ -214,16 +214,16 @@ class CompressionAlgorithm:
 
 		#store the variables
 		self.data = data.copy()
+
 		self.N,self.p = data.shape
 
-		self.normalization = np.vstack([np.max(self.data), np.min(self.data)])
-		self.normalization = np.hstack([self.normalization, np.array([self.N, self.p]).reshape(2,1)])
+		self.normalization = np.array([np.max(self.data), np.min(self.data), self.N, self.p])
 
 		#print(self.normalization.shape)
 		#get all attrs between 0 and 1
 		# for i in range(self.p):
 		# 	self.data[:,i] = (self.data[:,i] - self.normalization[1,i])/(self.normalization[0,i] - self.normalization[1,i])
-		self.data = (self.data - np.max(self.data))/(np.max(self.data)-np.min(self.data))
+		self.data = (self.data - self.normalization[1])/(self.normalization[0]-self.normalization[1])
 		#print(np.count_nonzero(np.isnan(data)))
 		self.NORMALIZATION += '.npy'
 		np.save(self.NORMALIZATION, self.normalization)
@@ -264,11 +264,9 @@ class CompressionAlgorithm:
 		data = original.copy()
 		codec = decompressed.copy()
 		N,p = data.shape
+		data = (data - self.normalization[1])/(self.normalization[0] - self.normalization[1])
+		codec = (codec - self.normalization[1])/(self.normalization[0] - self.normalization[1])
 
-		for i in range(p):
-			data[:,i] = (data[:,i] - self.normalization[1,i])/(self.normalization[0,i] - self.normalization[1,i])
-			codec[:,i] = (codec[:,i] - self.normalization[1,i])/(self.normalization[0,i] - self.normalization[1,i])
-		per_col_errors = np.max(np.abs(data - codec), axis=0)
 		"""
 		if plot == True:
 			plt.title('Original vs reconstructed')
@@ -277,7 +275,7 @@ class CompressionAlgorithm:
 			plt.legend()
 			plt.show()
 		"""
-		return {'Linfty': np.max(per_col_errors), 'L1':np.mean(np.abs(data - codec))}
+		return {'Linfty': np.max(np.abs(data - codec)), 'L1':np.mean(np.abs(data - codec))}
 		
 
 def iarray_bitpacking(codes, order='C'):
