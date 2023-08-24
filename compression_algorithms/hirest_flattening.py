@@ -222,9 +222,16 @@ if __name__ == "__main__":
     data = file[0:1024,0:1024]
 
     shape = 1024
-    nn = MultivariateHierarchical('hier', quantize_thresh = 0.005, window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True)
+    for flattener_type in ['row', 'window', 'windowContiguous']:
+        print("Flattner type: ", flattener_type)
+        nn = MultivariateHierarchical('hier', quantize_thresh = 0.005, window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True, flattening_algo=flattener_type, flatten_window=8)
+        nn.load(data)
+        nn.compress()
+        nn.decompress(data) 
+        print(nn.compression_stats)
 
-    nn.load(data)
-    nn.compress()
-    nn.decompress(data) 
-    print(nn.compression_stats)
+    # nn = MultivariateHierarchical('hier', quantize_thresh = 0.005, window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True, flattening_algo='row', flatten_window=8)
+    # nn.load(data)
+    # nn.compress()
+    # nn.decompress(data) 
+    # print(nn.compression_stats)
