@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_hist(x, 10, 0.5, 0.1, 10, pool_function = False)
+    new_x = wr.window_error_2d_hist(x, 10, 0.1, 0.1, 10, pool_function = False)
     end = time()
     print('New version: ', wr.replacements)
     print('New time: ', round(end-start, 2))
