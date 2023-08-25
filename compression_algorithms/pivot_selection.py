@@ -1,5 +1,7 @@
 import numpy as np
 from time import time
+from scipy.stats import gaussian_kde
+import matplotlib.pyplot as plt
 
 class WindowReplacement:
     def window_error_2d_hist(self, x, width, error, samp_percent, bins, pool_function = False):
@@ -16,6 +18,29 @@ class WindowReplacement:
                 # midpoint of the bucket
                 pivot = (buckets[max_bucket] + buckets[max_bucket+1])/2
 
+                for k in range(i,i+width):
+                    #print('k: ', k)
+                    for y in range(j,j+width):
+                        #print('y: ', y)
+                        if np.abs(x[k,y] - pivot)< error:
+                            self.replacements += 1
+                            #print(k,y)
+                            new_x[k,y] = pivot
+                        else:
+                            continue
+
+        return new_x
+    
+    def window_error_2d_kde(self, x, width, error, samp_percent):
+        self.replacements = 0
+        w,l = x.shape[0], x.shape[1]
+        new_x = np.copy(x)
+
+        n = int(np.floor(width*width*samp_percent))
+        for i in range(0, w-width+1, int(width)):
+            for j in range(0, l-width+1, int(width)):
+                smp = np.random.choice(x[i:i+width,j:j+width].flatten(), n)
+                pivot = smp[np.argmax(gaussian_kde(smp).pdf(smp))]
                 for k in range(i,i+width):
                     #print('k: ', k)
                     for y in range(j,j+width):
@@ -77,37 +102,49 @@ class WindowReplacement:
                         counter +=1
 
         return new_x
+
+    
     
 if __name__ == '__main__':
     # test on a 2d array
-    file = np.fromfile('data/CLDLOW_1_1800_3600.f32', dtype=float)
+    file = np.fromfile('data/CLDHGH_1_1800_3600.f32', dtype=float)
     file = file.reshape(1800, 1800)
     x = file[0:1024,0:1024]
     x = (x - np.min(x))/(np.max(x) - np.min(x))
     # x =np.random.normal(0,1,(1000,1000))
     wr = WindowReplacement()
+    window = 32
+    print("Window size: ", window)
 
     start = time()
-    new_x = wr.window_error_2d(x, 10, 0.1, first_element = True)
+    new_x = wr.window_error_2d(x, window, 0.01, first_element = True)
     end = time()
 
-    print('Old version: ', wr.replacements)
-    print('Old time: ', round(end-start, 2))
+    print('First element: ', wr.replacements)
+    print('First element time: ', round(end-start, 2))
 
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_hist(x, 10, 0.1, 0.1, 10, pool_function = False)
+    new_x = wr.window_error_2d_hist(x, window, 0.01, 0.25, 10)
     end = time()
-    print('New version: ', wr.replacements)
-    print('New time: ', round(end-start, 2))
+    print('Hist: ', wr.replacements)
+    print('Hist time: ', round(end-start, 2))
 
     # adaptive pivot
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_adaptive_pivot(x, 10, 8, 0.1, pool_function = False)
+    new_x = wr.window_error_2d_adaptive_pivot(x, window, 8, 0.01)
     end = time()
     print('Adaptive pivot: ', wr.replacements)
     print('Adaptive pivot time: ', round(end-start, 2))
+
+    # kde
+    wr = WindowReplacement()
+    start = time()
+    new_x = wr.window_error_2d_kde(x, window, 0.25, 0.01)
+    end = time()
+    print('KDE: ', wr.replacements)
+    print('KDE time: ', round(end-start, 2))
 
 
 
