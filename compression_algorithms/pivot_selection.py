@@ -84,20 +84,15 @@ class WindowReplacement:
         new_x = np.copy(x)
         for i in range(0, w-width+1, int(width)):
             for j in range(0, l-width+1, int(width)):
-                # if first_element:
-                #     pivot = x[i,j]
-                # else:
-                #     pivot  = np.mean(x[i:i+width,j:j+width])
-
-                
                 counter = 0
                 for k in range(i,i+width):
                     for y in range(j,j+width):
                         if counter % new_pivot_number == 0:
                             pivot = x[k,y]
+                            # adjsut replacement
+                            self.replacements -=1
                         if np.abs(x[k,y] - pivot)< error:
                             self.replacements += 1
-                            #print(k,y)
                             new_x[k,y] = pivot
                         counter +=1
 
@@ -114,10 +109,12 @@ if __name__ == '__main__':
     # x =np.random.normal(0,1,(1000,1000))
     wr = WindowReplacement()
     window = 32
+    error = 0.0001
+    sampling_prcnt = 0.25
     print("Window size: ", window)
 
     start = time()
-    new_x = wr.window_error_2d(x, window, 0.01, first_element = True)
+    new_x = wr.window_error_2d(x, window, error, first_element = True)
     end = time()
 
     print('First element: ', wr.replacements)
@@ -125,7 +122,7 @@ if __name__ == '__main__':
 
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_hist(x, window, 0.01, 0.25, 10)
+    new_x = wr.window_error_2d_hist(x, window, error, sampling_prcnt, 10)
     end = time()
     print('Hist: ', wr.replacements)
     print('Hist time: ', round(end-start, 2))
@@ -133,7 +130,7 @@ if __name__ == '__main__':
     # adaptive pivot
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_adaptive_pivot(x, window, 8, 0.01)
+    new_x = wr.window_error_2d_adaptive_pivot(x, window, 16, error)
     end = time()
     print('Adaptive pivot: ', wr.replacements)
     print('Adaptive pivot time: ', round(end-start, 2))
@@ -141,7 +138,7 @@ if __name__ == '__main__':
     # kde
     wr = WindowReplacement()
     start = time()
-    new_x = wr.window_error_2d_kde(x, window, 0.25, 0.01)
+    new_x = wr.window_error_2d_kde(x, window, error, sampling_prcnt)
     end = time()
     print('KDE: ', wr.replacements)
     print('KDE time: ', round(end-start, 2))
