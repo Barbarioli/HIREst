@@ -4,3 +4,4 @@
 *.pyc
 data/
 packing_algo_results/
+*.csv
