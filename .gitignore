@@ -1,0 +1,6 @@
+.DS_Store
+*.npy
+*.rc
+*.pyc
+data/
+packing_algo_results/

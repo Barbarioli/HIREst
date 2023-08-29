@@ -78,8 +78,7 @@ class HierarchicalSketch():
                             continue
                     
         return new_x
-
-  
+    
     #image version
     def encode(self, data):
         cpy = data.copy()
@@ -115,7 +114,6 @@ class HierarchicalSketch():
             r_linf = np.max(curr)
             r_l1 = self.pool_mean(np.abs(curr), w_)
             r_l2 = self.pool_mean(np.square(curr), w_)
-            
             hierarchy.append(v_quant)
             residuals_linf.append(np.max(r_linf))
             residuals_l1.append(np.mean(r_l1))
@@ -152,17 +150,19 @@ class HierarchicalSketch():
     def pack(self, sketch):
         vectors = []
         for h,r in sketch:
+            # vector = np.concatenate([np.array([r]), h.flatten()])
             vector = np.concatenate([np.array([r]), h.flatten()])
             vectors.append(vector)
             #print(vectors)
         return vectors
 
     #unpack all of the data
-    def unpack(self, array, error_thresh=0):
+    def unpack(self, array, w=2, error_thresh=0):
         sketch = []
         for i in range(self.start_level,self.d+1):
             
             r = array[0]
+            block = np.zeros()
             h = array[1:2**i+1]
             array = array[2**i+1:]
                 
@@ -209,9 +209,8 @@ class MultivariateHierarchical(CompressionAlgorithm):
             
         for en in ens:
                 #cumulative_gap = min(self.error_thresh - en[-1][1], cumulative_gap)
-            print(en)
             arrays.append(self.sketch.pack(en))
-        
+        print(arrays[0])
 
         codes = np.vstack(arrays).astype(np.float16)
 
@@ -221,7 +220,8 @@ class MultivariateHierarchical(CompressionAlgorithm):
         trc_flag = '-' + self.TURBO_CODE_PARAMETER
         # flush to .npy file
         self.path = self.CODES + '.npy'
-        np.save(self.path, codes.flatten(order='F'))
+        # np.save(self.path, codes.flatten(order='F'))
+        np.save(self.path, codes)
         self.CODES += '.rc'
         self.DATA_FILES[0] = self.CODES
         print('\n')
@@ -236,7 +236,6 @@ class MultivariateHierarchical(CompressionAlgorithm):
         self.compression_stats['compressed_size'] = self.getSize()
         self.compression_stats['compressed_ratio'] = self.getSize()/self.compression_stats['original_size']
         #self.compression_stats.update(struct.additional_stats)
-
 
     def decompress(self, original=None, error_thresh=1e-4):
         start = timer()
@@ -330,17 +329,22 @@ Test code here
 # print(np.count_nonzero(np.isnan(data)))
 #data = data.astype(np.float32)
 
-#file = np.fromfile('CLDLOW_1_1800_3600.f32', dtype=float)
+# file = np.fromfile('CLDLOW_1_1800_3600.f32', dtype=float)
 #file = np.fromfile('AEROD_v_1_1800_3600.f32', dtype=float)
 #file = np.fromfile('FREQZM_1_1800_3600.f32', dtype=float)
 #file = np.fromfile('TREFMXAV_1_1800_3600.f32', dtype=float)
-file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
+# file = np.fromfile('PCONVT_1_1800_3600.f32', dtype=float)
 
-
+file = np.fromfile('data/CLDLOW_1_1800_3600.f32', dtype=float)
 file = file.reshape(1800, 1800)
 data = file[0:1024,0:1024]
 
+print(data[0:20, 0:20])
+
 shape = 1024
+# data = np.random.normal(0, 1, (1024, 1024))
+
+
 
 # data = np.load('park_full.npy')
 # print('original shape:', data.shape)
@@ -348,7 +352,7 @@ shape = 1024
 # print('new shape:', data.shape)
 
 
-nn = MultivariateHierarchical('hier', quantize_thresh = 0.05,window_thresh = 0.05, blocksize=shape, start_level = 10, trc = True)
+nn = MultivariateHierarchical('hier', quantize_thresh = 0.005,window_thresh = 0.005, blocksize=shape, start_level = 10, trc = True)
 nn.load(data)
 nn.compress()
 
