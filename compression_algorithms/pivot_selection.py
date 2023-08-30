@@ -104,7 +104,7 @@ class WindowReplacementAdaptivePivot:
     
 if __name__ == '__main__':
     # test on a 2d array
-    file = np.fromfile('data/CLDHGH_1_1800_3600.f32', dtype=float)
+    file = np.fromfile('data/ODV_dust4_1_1800_3600.f32', dtype=float)
     file = file.reshape(1800, 1800)
     x = file[0:1024,0:1024]
 
@@ -114,7 +114,8 @@ if __name__ == '__main__':
     # x =np.random.normal(0,1,(1000,1000))
     wr = WindowReplacement(first_element=True)
     window = 16
-    error = 0.001
+    # error = 0.001
+    error = 0.2
     print("Window size: ", window)
     
 
