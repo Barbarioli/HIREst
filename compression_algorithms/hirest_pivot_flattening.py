@@ -34,8 +34,10 @@ class HierarchicalSketch():
         self.sfn = sfn
         self.start_level = start_level
 
-        if pivot_selection == 'window':
-            self.pivot_selector = WindowReplacement()
+        if pivot_selection == 'window first':
+            self.pivot_selector = WindowReplacement(first_element=True)
+        elif pivot_selection == 'window random':
+            self.pivot_selector = WindowReplacement(first_element=False)
         elif pivot_selection == 'kde':
             self.pivot_selector = WindowReplacementKDE(sampling_percent)
         elif pivot_selection == 'hist':
@@ -96,7 +98,7 @@ class MultivariateHierarchical(CompressionAlgorithm):
     The compression codec is initialized with a per
     attribute error threshold.
     '''
-    def __init__(self, target,pfn = np.mean, quantize_thresh=1e-5, window_thresh = 0.0, blocksize=4096, start_level = 0, trc = False, flattening_algo='row', w=8, pivot_selection = 'window', sampling_percent=0.2, bins=10):
+    def __init__(self, target,pfn = np.mean, quantize_thresh=1e-5, window_thresh = 0.0, blocksize=4096, start_level = 0, trc = False, flattening_algo='window', w=8, pivot_selection = 'window', sampling_percent=0.25, bins=10):
 
         super().__init__(target, quantize_thresh)
         self.trc = trc
@@ -180,48 +182,49 @@ Test code here
 #     for w in [8]:
         
 if __name__ == "__main__":
-    quantize_thresh = 0.005
-    window_thresh = 0.005
-    for w in [8, 16, 32]:
-        ratios, latencies, = [], []
-        for data in os.listdir('data'):
-            if data.endswith('.f32'):
-                file = np.fromfile('data/' + data, dtype=float)
-                file = file.reshape(1800, 1800)
-                arr = file[0:1024,0:1024]
-                # if np.isnan(data.sum()):
-                #     continue
-                shape = 1024
-                ratios_1ds = []
-                latencies_1ds = []
-                if w >= 32:
-                    algos = ['window', 'kde', 'hist', 'adaptive']
-                else:
-                    algos = ['window', 'hist', 'adaptive']
-                try:
-                    for pivot_type in algos:
-                        nn = MultivariateHierarchical('hier', quantize_thresh = quantize_thresh,window_thresh = window_thresh, blocksize=shape, start_level = 10, trc = True, flattening_algo="row", w=w, pivot_selection=pivot_type)
-                        nn.load(arr)
-                        nn.compress()
-                        nn.decompress(arr)
-                        print("Linfty error: ", np.round(nn.compression_stats['errors']['Linfty'], 4))
-                        # assert nn.compression_stats['errors']['Linfty']  <= (quantize_thresh + window_thresh + 1e-2), "Error guarantee not met"
-                        ratios_1ds.append(nn.compression_stats['compressed_ratio'])
-                        latencies_1ds.append(nn.compression_stats['compression_latency'])
-                    ratios.append(ratios_1ds)
-                    latencies.append(latencies_1ds)
-                except:
-                    print("Error with file: ", data)
-                    continue
+    error_comb = 0.05
+    quantize_thresh = 0.7*error_comb
+    window_thresh = 0.3*error_comb
 
-        ratios = np.array(ratios)
-        latencies = np.array(latencies)
-        # np.savetxt("pivot_selection_results/ratios_{}.csv".format(w), ratios, delimiter=',', fmt='%f')
-        # np.savetxt("pivot_selection_results/latencies_{}.csv".format(w), latencies, delimiter=',', fmt='%f')
-        np.savetxt("pivot_selection_results/ratios_{}_faster.csv".format(w), ratios, delimiter=',', fmt='%f')
-        np.savetxt("pivot_selection_results/latencies_{}_faster.csv".format(w), latencies, delimiter=',', fmt='%f')      
+    for flattener_type in ['row', 'window']:
+        for w in [2, 4, 8, 16, 32, 64]:
+            ratios, latencies, = [], []
+            for data in os.listdir('data'):
+                if data.endswith('.f32'):
+                    file = np.fromfile('data/' + data, dtype=float)
+                    file = file.reshape(1800, 1800)
+                    arr = file[0:1024,0:1024]
+                    shape = 1024
+                    ratios_1ds = []
+                    latencies_1ds = []
+                    if w >= 16:
+                        algos = ['window first', 'window random', 'hist']
+                    else:
+                        algos = ['window first', 'window random']
+                    try:
+                        for pivot_type in algos:
+                            nn = MultivariateHierarchical('hier', quantize_thresh = quantize_thresh,
+                                                        window_thresh = window_thresh, blocksize=shape,
+                                                        start_level = 10, trc = True, flattening_algo=flattener_type,
+                                                        w=w, pivot_selection=pivot_type)
+                            nn.load(arr)
+                            nn.compress()
+                            nn.decompress(arr)
+                            print("Linfty error: ", np.round(nn.compression_stats['errors']['Linfty'], 4))
+                            # assert nn.compression_stats['errors']['Linfty']  <= (quantize_thresh + window_thresh + 1e-2), "Error guarantee not met"
+                            ratios_1ds.append(nn.compression_stats['compressed_ratio'])
+                            latencies_1ds.append(nn.compression_stats['compression_latency'])
+                        ratios.append(ratios_1ds)
+                        latencies.append(latencies_1ds)
+                    except Exception as e:
+                        print("Error with file: ", data)
+                        print(e)
+                        continue
 
-
+            ratios = np.array(ratios)
+            latencies = np.array(latencies)
+            np.savetxt("pivot_selection_results/ratios_{}_{}.csv".format(w,flattener_type), ratios, delimiter=',', fmt='%f')
+            np.savetxt("pivot_selection_results/latencies_{}_{}.csv".format(w,flattener_type), latencies, delimiter=',', fmt='%f')  
     # file = np.fromfile('data/CLDLOW_1_1800_3600.f32', dtype=float)
     # file = file.reshape(1800, 1800)
     # data = file[0:1024,0:1024]
